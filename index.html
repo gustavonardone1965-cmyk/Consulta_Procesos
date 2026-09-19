@@ -30,6 +30,13 @@ button:hover:not(:disabled){border-color:var(--pri)}button:disabled{opacity:.45;
 .pop{position:fixed;z-index:60;width:min(760px,94vw);max-height:78vh;overflow:auto;background:var(--card);border:2px solid var(--pri);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.32);padding:14px 18px;display:none}
 .pop h4{margin:0 30px 2px 0;font-size:16px}.pop small{color:var(--mut)}.pop .x{position:sticky;float:right;top:0;font-size:16px}
 .pop .pg{font-weight:700;color:var(--pri);margin:14px 0 4px;border-bottom:1px solid var(--line)}.pop p{margin:4px 0;font-size:13.5px}.pop .n{color:var(--acc);font-weight:700;font-size:11.5px}
+.flow{list-style:none;margin:6px 0 2px;padding:0;counter-reset:s}
+.flow>li{display:block;border:0;position:relative;padding:5px 6px 5px 36px;font-size:13.5px;border-radius:8px}
+.flow>li:before{counter-increment:s;content:counter(s);position:absolute;left:4px;top:6px;width:22px;height:22px;border-radius:50%;background:var(--pri);color:#fff;text-align:center;font-size:12px;line-height:22px;font-weight:700}
+.flow>li.dc:before{background:var(--acc);border-radius:5px}.flow>li:after{content:"";position:absolute;left:14px;top:30px;bottom:-6px;width:2px;background:var(--line)}.flow>li:last-child:after{display:none}
+.flow>li.hs{background:var(--bg);box-shadow:inset 3px 0 0 var(--acc)}
+.br{list-style:none;margin:3px 0 0;padding:0}.br li{display:block;border:0;padding:1px 0;font-size:13px}.br b.si{color:#1a7f37}.br b.no{color:var(--acc)}
+.io{display:inline-block;font-size:11.5px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:0 8px;margin:3px 4px 0 0;color:var(--mut)}
 </style></head><body><div id="app">
 <header><h1>🔎 Buscador de Procesos</h1><p>Escribe un tema y te muestro qué dice cada proceso: nombre, página y número de párrafo, con el texto literal del PDF.</p></header>
 <div class="wrap"><details class="card help" id="help" open><summary>📖 Cómo usar este buscador (paso a paso)</summary><ol>
@@ -40,7 +47,7 @@ button:hover:not(:disabled){border-color:var(--pri)}button:disabled{opacity:.45;
 <li><b>Acota por proceso</b> (opcional): agrega su código a la consulta, por ejemplo «P3 inventario».</li>
 <li><b>⬇️ Descargar PDF</b> guarda el resultado en un archivo para imprimir o compartir. <b>🧹 Borrar resultado</b> limpia la pantalla para una nueva consulta.</li>
 <li><b>No tienes que cargar nada:</b> los procesos ya están cargados en la biblioteca compartida (panel de la izquierda).</li>
-<li><b>Diagramas de flujo:</b> también se buscan. Aparecen como «📊 Diagrama (transcripción) · paso N», con la página del PDF donde está el diagrama. Es una transcripción de apoyo: ante cualquier duda, confirma en el diagrama del PDF.</li></ol>
+<li><b>Diagramas de flujo:</b> también se buscan y se leen como una secuencia numerada: cada paso indica quién lo hace, las decisiones muestran sus ramas SÍ / NO y cada paso lista sus entradas 📥 y salidas 📤. Los pasos que coinciden con tu búsqueda quedan marcados con una barra roja. Es una transcripción de apoyo: ante cualquier duda, confirma en el diagrama del PDF.</li></ol>
 <p class="hint"><b>Solo para quien administra la biblioteca:</b> (1) abre este enlace con tu cuenta; (2) arrastra hasta 20 PDF al panel «Biblioteca» (para actualizar un proceso, sube su PDF nuevo: reemplaza al que tiene el mismo código, por ejemplo P3; para quitarlo, usa ✕); (3) presiona <b>💾 Grabar y publicar para todos</b>. La página se recarga y quienes abran el enlace ven la biblioteca actualizada, sin subir nada. Si no grabas, los cambios no llegan a los demás. Los diagramas se leen de una transcripción incluida en la página: si cambias un diagrama de un PDF, hay que actualizarla.</p></details></div>
 <main>
 <aside><div class="card"><h2>📚 Biblioteca de PDF <span id="cnt">0/20</span></h2>
@@ -94,7 +101,8 @@ const SUPP={
 'Decisión ¿Controles ok? SI: (2) Confirma recepción de mercadería y despacha camión',
 '(2) Ordena en cámara [Entrada: Buenas prácticas de estiba]',
 '(1 o 2) Realiza el alta de stock en sistema. FIN',
-'Decisión ¿Controles ok? NO: ¿Afecta la calidad del producto? SI: (2) Separa en zona de NC, saca fotos y da aviso a (1) para devolución. Termina en Procedimiento de devolución',
+'Decisión ¿Controles ok? NO: sigue a la pregunta siguiente',
+'Decisión ¿Afecta la calidad del producto? SI: (2) Separa en zona de NC, saca fotos y da aviso a (1) para devolución. Termina en Procedimiento de devolución',
 'Decisión ¿Afecta la calidad del producto? NO: (2) Da aviso a (1) del sobrante/faltante o del desvío',
 '(1) Realiza reclamo y acciones comerciales. FIN']},
 'P7':{3:['PROCESO DE PREPARACIÓN Y ENTREGA DE PRODUCTOS (Participantes: 1 Franquiciado, 2 Colaborador, 3 Cliente)',
@@ -303,7 +311,12 @@ const SUPP={
 '01 Realizar seguimiento de resultados de la acción y mantener activa hasta logro de objetivo y valores saludables de SDS. Registrar acciones, novedades e impacto en Bitácora SDS [Entrada: Gráfico SDS Tabla de Datos SDS] [Salida: Bitácora SDS]',
 'ETAPA DE VERIFICACIÓN DE ACCIONES COMERCIALES (conector B, página 2). FIN']}
 };
-const sup=d=>d._s||(d._s=Object.entries(SUPP[d.code]||{}).flatMap(([pg,a])=>a.slice(1).map((t,i)=>({p:+pg,n:i+1,sec:a[0],text:t,tk:terms(t),k:1}))));
+const LEG={'P6':{1:'Franquiciado',2:'Colaborador',3:'Cliente'},'P4':{1:'Franquiciado',2:'Mandos Medios',3:'Transportista'},'P7':{1:'Franquiciado',2:'Colaborador',3:'Cliente'},'P8/9/10':{1:'Franquiciado',2:'Colaborador',3:'Cliente',4:'Transporte'},'P3':{1:'Franquiciado',2:'Encargados',3:'Administrativo',4:'Colaboradores',5:'Responsable de stock'},'P32':{1:'Franquiciado',2:'Colaborador'},'P19':{1:'Franquiciado',2:'Mandos Medios',3:'Personal'},'P11/12':{1:'Franquiciado',2:'Mandos Medios',3:'Personal'},'P1':{1:'Franquiciado',2:'Asesor Zonal'}};
+const xp=(c,t)=>{const L=LEG[c]||{};if(c==='P1')return t.replace(/(^|[\s:])0([12])\s/g,(m,a,n)=>a+L[n]+' — ');
+  const nm=g=>g.replace(/\d/g,n=>L[n]||n);
+  t=t.replace(/(^|:\s+|luego\s+)((?:\([\d\s,\/oy]+\)\s*(?:y\/o|y|o)?\s*)+)/g,(m,p,g)=>p+nm(g).replace(/\)\s+\(/g,', ').replace(/[()]/g,'').replace(/\s+$/,'')+' — ');
+  return t.replace(/\(([\d\s,\/oy]+)\)/g,(m,g)=>nm(g))};
+const sup=d=>d._f||(d._f=Object.entries(SUPP[d.code]||{}).flatMap(([pg,a])=>a.slice(1).map((t,i)=>{const x=xp(d.code,t);return{p:+pg,n:i+1,sec:a[0],text:x,tk:terms(x),k:1}})));
 const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)};
 const st=m=>$('st').textContent=m;
 
@@ -380,13 +393,27 @@ function search(q){
   }
   res.sort((a,b)=>b.s-a.s);const top=res.length?res[0].s:0;
   const keep=res.filter(r=>r.s>=top*.3).slice(0,300),G=new Map();
-  for(const r of keep){let g=G.get(r.d.id);if(!g)G.set(r.d.id,g={id:r.d.id,code:r.d.code,title:r.d.title,file:r.d.file,best:r.s,hits:[]});g.hits.push({p:r.p.p,n:r.p.n,sec:r.p.sec,text:r.p.text,k:r.p.k})}
+  for(const r of keep){let g=G.get(r.d.id);if(!g)G.set(r.d.id,g={d:r.d,id:r.d.id,code:r.d.code,title:r.d.title,file:r.d.file,best:r.s,hits:[]});g.hits.push({p:r.p.p,n:r.p.n,sec:r.p.sec,text:r.p.text,k:r.p.k})}
   let words=0,omit=0,n=0;
-  const groups=[...G.values()].sort((a,b)=>b.best-a.best).map(g=>{g.hits.sort((a,b)=>a.p-b.p||(a.k||0)-(b.k||0)||a.n-b.n);
+  const groups=[...G.values()].sort((a,b)=>b.best-a.best).map(g=>{g.hits=[...g.hits.filter(h=>!h.k),...[...new Set(g.hits.filter(h=>h.k).map(h=>h.p))].map(pg=>{const st=sup(g.d).filter(x=>x.p===pg);return{p:pg,n:0,k:2,sec:st[0].sec,steps:st.map(x=>x.text),hs:g.hits.filter(h=>h.k&&h.p===pg).map(h=>h.n),text:st.map(x=>x.text).join(' ')}})];g.hits.sort((a,b)=>a.p-b.p||(a.k||0)-(b.k||0)||a.n-b.n);
     g.hits=g.hits.filter(h=>{const w=h.text.split(/\s+/).length;if(words+w>MAXW){omit++;return false}words+=w;n++;return true});return g}).filter(g=>g.hits.length);
   return{q,groups,n,omit,words,base:base.length,codes};
 }
 const hl=t=>{let o='',i=0;t.replace(/[A-Za-z0-9\u00C0-\u017F]+/g,(w,k)=>{o+=esc(t.slice(i,k))+(QS.has(stem(norm(w)))?'<mark>'+esc(w)+'</mark>':esc(w));i=k+w.length;return w});return o+esc(t.slice(i))};
+/* ---------- Diagramas de flujo como secuencia legible ---------- */
+const pstep=t=>{const io=[];t=t.replace(/\[(Entradas?|Salidas?|Entrada y Salida|Apps):\s*([^\]]*)\]/g,(m,k,v)=>{io.push([k,v.trim()]);return ' '}).replace(/\s+/g,' ').replace(/\s+([.,])/g,'$1').trim();
+  const dec=/^Decisión/.test(t);if(dec)t=t.replace(/^Decisión:?\s*/,'');
+  let head=t,br=[];const m=t.split(/(?:^|\s)(SI|NO):\s+/);
+  if(m.length>1){head=m[0].trim();for(let i=1;i<m.length;i+=2)br.push([m[i],m[i+1].trim()])}
+  else if(dec){const s=t.split(/\.\s+(?=[A-ZÁÉÍÓÚ][^.:]{0,45}:\s)/);
+    if(s.length>1||(t.match(/:/g)||[]).length>1){head='';s.forEach((x,i)=>{let k=x.indexOf(':');if(k<0){head=x;return}if(i===0&&(x.match(/:/g)||[]).length>1){head=x.slice(0,k);x=x.slice(k+1).trim();k=x.indexOf(':')}br.push([x.slice(0,k).trim(),x.slice(k+1).trim()])})}}
+  return{io,dec,head:head||(dec&&br.length?'según el caso':''),br}};
+const flowHtml=(steps,hs)=>'<ol class="flow">'+steps.map((t,i)=>{const s=pstep(t);
+  return '<li class="'+(s.dec?'dc ':'')+((hs||[]).includes(i+1)?'hs':'')+'">'+(s.dec?'<b>Decisión:</b> ':'')+hl(s.head)+
+   (s.br.length?'<ul class="br">'+s.br.map(b=>'<li>↳ <b class="'+(b[0]==='SI'?'si':b[0]==='NO'?'no':'')+'">'+esc(b[0]==='SI'?'SÍ':b[0])+'</b>: '+hl(b[1])+'</li>').join('')+'</ul>':'')+
+   (s.io.length?'<div>'+s.io.map(x=>'<span class="io">'+(/^Salida/.test(x[0])?'📤':'📥')+' '+esc(x[0])+': '+hl(x[1])+'</span>').join('')+'</div>':'')+'</li>'}).join('')+'</ol>';
+const flowCard=h=>'<div class="hit"><div class="loc">Pág. '+h.p+' · 📊 Diagrama de flujo (transcripción) · '+esc(h.sec)+'</div>'+flowHtml(h.steps,h.hs)+'</div>';
+const flowTxt=st=>st.map((t,i)=>{const s=pstep(t);return (i+1)+'. '+(s.dec?'[Decision] ':'')+s.head+s.br.map(b=>'\n     -> '+b[0]+': '+b[1]).join('')+s.io.map(x=>'\n     ['+x[0]+': '+x[1]+']').join('')}).join('\n');
 function run(){
   const q=$('q').value.trim(),R=$('res');cur=null;$('bPdf').disabled=true;
   if(!docs.length){R.innerHTML='<div class="empty">Primero carga al menos un PDF en la biblioteca.</div>';return}
@@ -397,7 +424,7 @@ function run(){
   cur=r;$('bPdf').disabled=!DL;
   R.innerHTML=`<p class="sum">${r.n} coincidencia(s) en ${r.groups.length} proceso(s) para «${esc(q)}» · ${r.words} palabras. Los textos son extractos literales de los PDF; los párrafos se numeran por página, de arriba hacia abajo (cada viñeta cuenta como un párrafo). <b>Tip:</b> pasa el mouse por el nombre de un proceso (o tócalo en el celular) para ver el proceso completo.${r.omit?' <b>'+r.omit+' resultado(s) omitido(s) por el límite de 10.000 palabras.</b>':''}</p>`+
   r.groups.map(g=>`<div class="g"><h3 data-doc="${esc(g.id)}"><span class="code">${esc(g.code||'—')}</span>${esc(g.title)}</h3><small>${esc(g.file)} · págs. ${[...new Set(g.hits.map(h=>h.p))].join(', ')}</small>`+
-    g.hits.map(h=>`<div class="hit"><div class="loc">Pág. ${h.p} · ${h.k?'📊 Diagrama (transcripción) · paso '+h.n:'Párrafo '+h.n}${h.sec?' · '+esc(h.sec):''}</div><p>${hl(h.text)}</p></div>`).join('')+'</div>').join('')+warn();
+    g.hits.map(h=>h.k===2?flowCard(h):`<div class="hit"><div class="loc">Pág. ${h.p} · ${h.k?'📊 Diagrama (transcripción) · paso '+h.n:'Párrafo '+h.n}${h.sec?' · '+esc(h.sec):''}</div><p>${hl(h.text)}</p></div>`).join('')+'</div>').join('')+warn();
 }
 
 /* ---------- Grabar / restaurar ---------- */
@@ -412,7 +439,7 @@ function buildPdf(){
   const put=(t,sz,b,gap)=>{d.setFont('helvetica',b?'bold':'normal');d.setFontSize(sz);for(const l of d.splitTextToSize(cl(t),W)){if(y>H){d.addPage();y=M}d.text(l,M,y);y+=sz*1.3}y+=gap};
   put('Consulta a procesos',16,1,4);put('Consulta: '+cur.q,11,1,2);put(new Date().toLocaleString('es-AR')+' - '+cur.n+' coincidencias en '+cur.groups.length+' proceso(s)',9,0,10);
   for(const g of cur.groups){put((g.code||'-')+' - '+g.title+'  ('+g.file+')',12,1,3);
-    for(const h of g.hits){put('Pag. '+h.p+' - '+(h.k?'Diagrama (transcripcion) paso ':'Parrafo ')+h.n+(h.sec?' - '+h.sec:''),9,1,1);put(h.text,10,0,8)}y+=6}
+    for(const h of g.hits){if(h.k===2){put('Pag. '+h.p+' - Diagrama de flujo (transcripcion) - '+h.sec,9,1,1);put(flowTxt(h.steps),10,0,8);continue}put('Pag. '+h.p+' - '+(h.k?'Diagrama (transcripcion) paso ':'Parrafo ')+h.n+(h.sec?' - '+h.sec:''),9,1,1);put(h.text,10,0,8)}y+=6}
   return d.output('blob');
 }
 
@@ -426,7 +453,7 @@ function fullDoc(d){
   return '<h4>'+esc(d.code||'')+' '+esc(d.title)+'</h4><small>'+esc(d.file)+' · '+d.pages+' págs. · proceso completo</small>'+
     Object.keys(by).map(Number).sort((a,b)=>a-b).map(pg=>{const o=by[pg];o.a.sort((a,b)=>a.n-b.n);
       return '<div class="pg">Página '+pg+'</div>'+o.a.map(p=>'<p><span class="n">¶'+p.n+'</span> '+(HD.test(p.text)?'<b>'+hl(p.text)+'</b>':hl(p.text))+'</p>').join('')+
-        (o.g.length?'<p class="n">📊 Diagrama (transcripción): '+esc(o.g[0].sec)+'</p>'+o.g.map(p=>'<p><span class="n">paso '+p.n+'</span> '+hl(p.text)+'</p>').join(''):'')}).join('');
+        (o.g.length?'<p class="n">📊 Diagrama de flujo (transcripción): '+esc(o.g[0].sec)+'</p>'+flowHtml(o.g.map(p=>p.text),[]):'')}).join('');
 }
 function showPop(el){
   const d=docs.find(x=>x.id===el.dataset.doc);if(!d)return;
